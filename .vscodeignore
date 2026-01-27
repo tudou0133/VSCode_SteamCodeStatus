@@ -9,3 +9,10 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+
+# 下面这两行非常重要！
+# 我们要忽略 C# 的源码和中间文件
+backend/**/*.cs
+backend/**/*.csproj
+backend/obj/
+backend/bin/

@@ -1,8 +1,24 @@
 {
   "name": "SteamCodeStatus",
   "displayName": "SteamCodeStatus",
-  "description": "",
-  "version": "0.0.1",
+  "description": "Sync your VS Code activity to Steam Rich Presence.",
+  "version": "1.0.0",
+  "publisher": "tudou0133",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tudou0133/VSCode_SteamCodeStatus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tudou0133/VSCode_SteamCodeStatus/issues"
+  },
+  "homepage": "https://github.com/tudou0133/VSCode_SteamCodeStatus/blob/main/README.md",
+  "icon": "icon.png",
+  "keywords": [
+    "steam",
+    "rich presence",
+    "status",
+    "game"
+  ],
   "engines": {
     "vscode": "^1.108.1"
   },
