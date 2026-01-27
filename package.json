@@ -1,0 +1,95 @@
+{
+  "name": "SteamCodeStatus",
+  "displayName": "SteamCodeStatus",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.108.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeStatus.setManualStatus",
+        "title": "CodeStatus: 手动修改状态 (Manual Override)"
+      }
+    ],
+    "configuration": {
+        "title": "SteamCodeStatus配置", 
+        "properties": {
+            "codeStatus.enabled": {
+                "type": "boolean",
+                "default": true,
+                "description": "是否启用 Steam 状态同步插件"
+            },
+            "codeStatus.steamAppId": {
+                "type": "string",
+                "default": "3527290",
+                "description": "目标游戏的 AppID (例如: 480 或 3527290)"
+            },
+            "codeStatus.displayTemplate": {
+                "type": "string",
+                "default": "#Status_Airport",
+                "description": "Rich Presence 模板 Key (例如: #Status 或 #Status_Airport)"
+            },
+            "codeStatus.dynamicKey": {
+                "type": "string",
+                "default": "max_players",
+                "description": "用于显示文件名的动态参数 Key (例如: status 或 max_players)"
+            },
+            "codeStatus.staticArgs": {
+                "type": "string",
+                "default": "players=/",
+                "description": "静态参数，格式 key=value (例如: players=/)"
+            },
+            "codeStatus.statusTemplate": {
+                "type": "string",
+                "default": "[{projectName} | ]正在编写 {folderName}/{fileName}",
+                "description": "自定义状态栏显示格式。支持变量: {projectName}, {fileName}, {language}, {lineCount}, {filePath}, {folderName}。使用 [...] 包裹的内容仅在变量存在时显示。",
+                "order": 1
+            },
+            "codeStatus.idleText": {
+                "type": "string",
+                "default": "正在摸鱼🐟",
+                "description": "当没有打开文件时显示的文本",
+                "order": 2
+            },
+            "codeStatus.groupId": {
+                "type": "string",
+                "default": "",
+                "description": "Steam 组队ID (Group ID)，用于显示组队"
+            },
+            "codeStatus.groupSize": {
+                "type": "string",
+                "default": "1",
+                "description": "Steam 组队大小 (Group Size)，用于显示组队人数"
+            }
+        }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "vscode-test",
+    "build:bridge_x64": "dotnet publish bridge/SteamRichPresenceBridge.csproj -c Release -r win-x64 --self-contained true -o backend/win-x64",
+    "build:bridge_linux": "dotnet publish bridge/SteamRichPresenceBridge.csproj -c Release -r linux-x64 --self-contained true -o backend/linux-x64",
+    "build:all": "npm run compile && npm run build:bridge_x64 && npm run build:bridge_linux"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.108.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.52.0",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}

@@ -1,0 +1,23 @@
+# --- Node.js 忽略项 ---
+node_modules/
+out/
+dist/
+.vscode-test/
+*.vsix
+
+# --- C# / .NET 忽略项 ---
+bin/
+obj/
+*.user
+*.pdb
+*.suo
+.vs/
+
+# --- 操作系统生成的文件 ---
+.DS_Store
+Thumbs.db
+
+# --- 你的后端编译产物 (建议忽略，也就是生成的exe) ---
+# 原则上不应该上传 exe，别人下载代码后应该自己编译
+# 但如果你只有自己用，想偷懒直接传 exe，可以把下面这行删掉
+# backend/win-x64/
