@@ -22,7 +22,7 @@
     "url": "https://github.com/tudou0133/VSCode_SteamCodeStatus/issues"
   },
   "homepage": "https://github.com/tudou0133/VSCode_SteamCodeStatus/blob/main/README.md",
-  "icon": "icon.png",
+  "icon": "images/icon.png",
   "keywords": [
     "steam",
     "rich presence",

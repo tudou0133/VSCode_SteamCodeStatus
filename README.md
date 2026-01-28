@@ -1,7 +1,7 @@
 # 🎮 Steam Code Status for VS Code
 
 <div align="center">
-    <img src="icon.png" alt="Logo" width="128" height="128">
+    <img src="images/icon.png" alt="Logo" width="128" height="128">
     <br>
     <br>
     <a href="https://github.com/tudou0133/VSCode_SteamCodeStatus">
@@ -19,6 +19,13 @@
 
 **Steam Code Status** 是一个可以将你的 Visual Studio Code 编程活动实时同步到 Steam 好友列表（Rich Presence）的插件。赛博云监工，让你的好友知道你正在敲代码，而不是在摸鱼！
 
+<div align="center">
+    <img src="images/preview.png" alt="Steam Friends List Preview" width="600">
+    <br>
+    <i>☝️ 实时同步你的编程状态到 Steam 好友列表 (支持组队显示)</i>
+</div>
+
+<br>
 ---
 本插件想法和早期实现来源自 罗吉@furrylogy 薯在此郑重致谢!!!
 
