@@ -5,12 +5,17 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="Steamworks.NET">
       <HintPath>libs\Steamworks.NET.dll</HintPath>
-    </Reference>
+      </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Steamworks.NET" Version="20.2.0" ExcludeAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,9 +23,11 @@
       <Link>%(Filename)%(Extension)</Link> 
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="libs\*.so">
-      <Link>%(Filename)%(Extension)</Link>
+      <Link>%(Filename)%(Extension)</Link> 
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

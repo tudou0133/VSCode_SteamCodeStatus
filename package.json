@@ -2,8 +2,18 @@
   "name": "SteamCodeStatus",
   "displayName": "SteamCodeStatus",
   "description": "Sync your VS Code activity to Steam Rich Presence.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "tudou0133",
+  "author": {
+    "name": "tudou0133",
+    "url": "https://github.com/tudou0133"
+  },
+  "contributors": [
+    {
+      "name": "furrylogy",
+      "url": "https://github.com/furrylogy"
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/tudou0133/VSCode_SteamCodeStatus.git"
@@ -32,6 +42,18 @@
   "contributes": {
     "commands": [
       {
+        "command": "codeStatus.showMainMenu",
+        "title": "CodeStatus: 打开设置菜单 (Main Menu)"
+      },
+      {
+        "command": "codeStatus.toggleEnabled",
+        "title": "CodeStatus: 切换启用/禁用 (Toggle Enable)"
+      },
+      {
+        "command": "codeStatus.setGroupId",
+        "title": "CodeStatus: 设置组队 ID (Set Group ID)"
+      },
+      {
         "command": "codeStatus.setManualStatus",
         "title": "CodeStatus: 手动修改状态 (Manual Override)"
       }
@@ -46,27 +68,27 @@
             },
             "codeStatus.steamAppId": {
                 "type": "string",
-                "default": "3527290",
-                "description": "目标游戏的 AppID (例如: 480 或 3527290)"
+                "default": "730",
+                "description": "目标游戏的 AppID (例如: 480 或 730)"
             },
             "codeStatus.displayTemplate": {
                 "type": "string",
-                "default": "#Status_Airport",
-                "description": "Rich Presence 模板 Key (例如: #Status 或 #Status_Airport)"
+                "default": "#display_GameKnownMapScore",
+                "description": "Rich Presence 模板 Key (例如: #Status 或 #display_GameKnownMapScore)"
             },
             "codeStatus.dynamicKey": {
                 "type": "string",
-                "default": "max_players",
-                "description": "用于显示文件名的动态参数 Key (例如: status 或 max_players)"
+                "default": "game:score",
+                "description": "用于显示文件名的动态参数 Key (例如: status 或 game:score)"
             },
             "codeStatus.staticArgs": {
                 "type": "string",
-                "default": "players=/",
-                "description": "静态参数，格式 key=value (例如: players=/)"
+                "default": "game:mode=competitive & game:map=de_mirage",
+                "description": "静态参数，格式 key1=value1 & key2=value2 (例如: game:mode=competitive)"
             },
             "codeStatus.statusTemplate": {
                 "type": "string",
-                "default": "[{projectName} | ]正在编写 {folderName}/{fileName}",
+                "default": "正在编写 {folderName}/{fileName}",
                 "description": "自定义状态栏显示格式。支持变量: {projectName}, {fileName}, {language}, {lineCount}, {filePath}, {folderName}。使用 [...] 包裹的内容仅在变量存在时显示。",
                 "order": 1
             },
@@ -79,12 +101,12 @@
             "codeStatus.groupId": {
                 "type": "string",
                 "default": "",
-                "description": "Steam 组队ID (Group ID)，用于显示组队"
+                "description": "Steam 组队ID "
             },
             "codeStatus.groupSize": {
                 "type": "string",
                 "default": "1",
-                "description": "Steam 组队大小 (Group Size)，用于显示组队人数"
+                "description": "Steam 组队人数"
             }
         }
     }

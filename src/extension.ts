@@ -6,6 +6,7 @@ let clientProcess: cp.ChildProcess | undefined;
 let outputChannel: vscode.OutputChannel;
 let isWindowFocused = vscode.window.state.focused;
 let manualOverrideText: string | undefined = undefined;
+let myStatusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext) {
     // 1. 初始化日志
@@ -15,55 +16,124 @@ export function activate(context: vscode.ExtensionContext) {
     // 2. 首次启动
     startBridge(context);
 
-    const myStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    myStatusBarItem.command = "codeStatus.setManualStatus";
-    myStatusBarItem.text = "$(megaphone) Steam状态"; // 图标+文字
-    myStatusBarItem.tooltip = "点击手动修改 Steam 状态";
-    myStatusBarItem.show();
+    // 3. 创建状态栏
+    myStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    myStatusBarItem.command = "codeStatus.showMainMenu"; // 点击触发主菜单
     context.subscriptions.push(myStatusBarItem);
+    updateStatusBarVisuals(); // 初始化显示
+    myStatusBarItem.show();
 
-    // 注册手动修改命令
-    const manualCommand = vscode.commands.registerCommand('codeStatus.setManualStatus', async () => {
-        // 弹出输入框
-        const input = await vscode.window.showInputBox({
-            placeHolder: "输入自定义状态 (留空回车则恢复自动模式)",
-            prompt: "强制修改 Steam 状态"
+    // ==========================================
+    // 注册命令
+    // ==========================================
+
+    // [命令 1] 显示主菜单 (状态栏点击触发)
+    const menuCommand = vscode.commands.registerCommand('codeStatus.showMainMenu', async () => {
+        const config = vscode.workspace.getConfiguration('codeStatus');
+        const isEnabled = config.get<boolean>('enabled', true);
+        const currentGroupId = config.get<string>('groupId', "");
+
+        const items: vscode.QuickPickItem[] = [
+            {
+                label: isEnabled ? "$(circle-filled) 暂停同步 (Disable)" : "$(play) 启用同步 (Enable)",
+                description: isEnabled ? "当前状态: 已启用" : "当前状态: 已禁用",
+                detail: "codeStatus.toggleEnabled" // 存命令ID方便后续处理
+            },
+            {
+                label: "$(organization) 设置组队 ID (Group ID)",
+                description: currentGroupId ? `当前: ${currentGroupId}` : "当前: 未设置",
+                detail: "codeStatus.setGroupId"
+            },
+            {
+                label: "$(edit) 手动修改状态文本",
+                description: manualOverrideText ? `当前锁定: ${manualOverrideText}` : "当前: 自动模式",
+                detail: "codeStatus.setManualStatus"
+            }
+        ];
+
+        const selection = await vscode.window.showQuickPick(items, {
+            placeHolder: "Steam Code Status 设置菜单"
         });
 
-        // 逻辑判断
-        if (input === undefined) {
-            return; // 用户按了 ESC，什么都不做
+        if (selection && selection.detail) {
+            vscode.commands.executeCommand(selection.detail);
         }
+    });
+
+    // [命令 2] 切换启用/禁用
+    const toggleCommand = vscode.commands.registerCommand('codeStatus.toggleEnabled', async () => {
+        const config = vscode.workspace.getConfiguration('codeStatus');
+        const current = config.get<boolean>('enabled', true);
+        // 修改配置 (Global = 用户设置)
+        await config.update('enabled', !current, vscode.ConfigurationTarget.Global);
+        vscode.window.setStatusBarMessage(current ? "Steam Status 已禁用" : "Steam Status 已启用", 3000);
+        updateStatusBarVisuals();
+    });
+
+    // [命令 3] 设置组队 ID
+    const groupCommand = vscode.commands.registerCommand('codeStatus.setGroupId', async () => {
+        const config = vscode.workspace.getConfiguration('codeStatus');
+        const currentId = config.get<string>('groupId', "");
+
+        const input = await vscode.window.showInputBox({
+            placeHolder: "输入组队 ID (例如: MyTeam)",
+            prompt: "设置 Steam 组队 ID (清空则关闭组队显示)",
+            value: currentId
+        });
+
+        if (input !== undefined) {
+            await config.update('groupId', input, vscode.ConfigurationTarget.Global);
+            // 顺便提示是否要设置人数
+            const setSize = await vscode.window.showInformationMessage(`组队 ID 已设为 "${input}"，需要设置人数吗？`, "设置人数", "跳过");
+            if (setSize === "设置人数") {
+                const sizeInput = await vscode.window.showInputBox({ prompt: "输入队伍总人数", value: "4" });
+                if (sizeInput) await config.update('groupSize', sizeInput, vscode.ConfigurationTarget.Global);
+            }
+        }
+    });
+
+    // [命令 4] 手动修改状态 (原有的逻辑)
+    const manualCommand = vscode.commands.registerCommand('codeStatus.setManualStatus', async () => {
+        const input = await vscode.window.showInputBox({
+            placeHolder: "输入自定义状态 (留空回车则恢复自动模式)",
+            prompt: "强制修改 Steam 状态",
+            value: manualOverrideText || ""
+        });
+
+        if (input === undefined) return;
 
         if (input.trim() === "") {
-            manualOverrideText = undefined; // 恢复自动
+            manualOverrideText = undefined;
             vscode.window.setStatusBarMessage("CodeStatus: 已恢复自动模式", 3000);
         } else {
-            manualOverrideText = input; // 设置手动内容
+            manualOverrideText = input;
             vscode.window.setStatusBarMessage(`CodeStatus: 已锁定为 "${input}"`, 3000);
         }
-
-        // 立即刷新一次
         updateStatus(vscode.window.activeTextEditor);
+        updateStatusBarVisuals(); // 可能状态变了，刷一下图标
     });
-    context.subscriptions.push(manualCommand);
 
-    // 3. 监听配置修改 (Hot Reload)
+    context.subscriptions.push(menuCommand, toggleCommand, groupCommand, manualCommand);
+
+
+    // 4. 监听配置修改 (Hot Reload)
+    // 注意：上面的 toggleEnabled 和 setGroupId 都会触发这个事件，所以不需要在那里写重启逻辑
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('codeStatus')) {
             outputChannel.appendLine("[System] 检测到配置变更，正在重启后端...");
+            updateStatusBarVisuals(); // 刷新图标状态
             stopBridge();
-            setTimeout(() => startBridge(context), 500); // 延时一点等待清理
+            setTimeout(() => startBridge(context), 500);
         }
     }));
 
-    // 4. 监听窗口焦点 (防冲突)
+    // 5. 监听窗口焦点
     context.subscriptions.push(vscode.window.onDidChangeWindowState((windowState) => {
         isWindowFocused = windowState.focused;
         if (isWindowFocused) updateStatus(vscode.window.activeTextEditor);
     }));
 
-    // 5. 监听编辑器切换
+    // 6. 监听编辑器切换
     context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor((editor) => {
         updateStatus(editor);
     }));
@@ -84,7 +154,8 @@ function startBridge(context: vscode.ExtensionContext) {
     const appId = config.get<string>('steamAppId', "480");
     const template = config.get<string>('displayTemplate', "#Status_Airport");
     const dynamicKey = config.get<string>('dynamicKey', "max_players");
-    const staticArgs = config.get<string>('staticArgs', "players=/");
+    // 获取静态参数字符串 (例如: "key1=val1 & key2=val2")
+    const staticArgsRaw = config.get<string>('staticArgs', "");
     const groupId = config.get<string>('groupId', "1");
     const groupSize = config.get<string>('groupSize', "1");
 
@@ -107,10 +178,22 @@ function startBridge(context: vscode.ExtensionContext) {
         "-app", appId,
         "-template", template,
         "-key", dynamicKey,
-        "-static", staticArgs,
         "-group", groupId,
         "-groupsize", groupSize
     ];
+
+    // 处理多个 -static 参数
+    // 逻辑：用 '&' 分割字符串，然后循环添加到数组中
+    if (staticArgsRaw && staticArgsRaw.trim() !== "") {
+        const pairs = staticArgsRaw.split('&'); // 使用 & 作为分隔符
+        for (const pair of pairs) {
+            const cleanPair = pair.trim();
+            // 只有包含 '=' 的才被视为有效参数
+            if (cleanPair && cleanPair.includes('=')) {
+                args.push("-static", cleanPair);
+            }
+        }
+    }
 
     outputChannel.appendLine(`[启动] 参数: ${JSON.stringify(args)}`);
 
@@ -257,3 +340,33 @@ const StatusFormatter = {
         return value === null || value === undefined || value === '';
     }
 };
+
+// --- 辅助函数：更新状态栏视觉效果 ---
+function updateStatusBarVisuals() {
+    if (!myStatusBarItem) return;
+
+    const config = vscode.workspace.getConfiguration('codeStatus');
+    const isEnabled = config.get<boolean>('enabled', true);
+    const groupId = config.get<string>('groupId', "");
+
+    if (!isEnabled) {
+        myStatusBarItem.text = "$(circle-slash) Steam: Off";
+        myStatusBarItem.tooltip = "Steam Status 已禁用 (点击开启)";
+        myStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground'); // 显眼的背景色
+    } else {
+        // 正常开启状态
+        if (manualOverrideText) {
+            myStatusBarItem.text = "$(lock) Steam: Manual"; // 锁定图标
+            myStatusBarItem.tooltip = `当前手动锁定: ${manualOverrideText}`;
+        } else {
+            myStatusBarItem.text = "$(megaphone) Steam: On";
+            // 如果有组队，显示一点提示
+            if (groupId) {
+                myStatusBarItem.tooltip = `正在同步 | 组队 ID: ${groupId}`;
+            } else {
+                myStatusBarItem.tooltip = "点击打开设置菜单";
+            }
+        }
+        myStatusBarItem.backgroundColor = undefined; // 恢复默认背景
+    }
+}

@@ -106,21 +106,20 @@ class Program
 
             // 7.4 [新增] 设置组队信息 (安全检查)
             // 只有当参数存在且不为空字符串时才发送
-            // if (!string.IsNullOrEmpty(groupId) && !string.IsNullOrEmpty(groupSize))
-            // {
+            if (!string.IsNullOrEmpty(groupId) && !string.IsNullOrEmpty(groupSize))
+            {
                 SteamFriends.SetRichPresence("steam_player_group", groupId);
                 SteamFriends.SetRichPresence("steam_player_group_size", groupSize);
-            // } 
-            // else
-            // {
-            //     // 如果没有组 ID，则清除组队相关字段以避免显示错误信息
-            //     SteamFriends.SetRichPresence("steam_player_group", null);
-            //     SteamFriends.SetRichPresence("steam_player_group_size", null);
-            // }
+            } 
+            else
+            {
+                // 如果没有组 ID，则清除组队相关字段以避免显示错误信息
+                SteamFriends.SetRichPresence("steam_player_group", null);
+                SteamFriends.SetRichPresence("steam_player_group_size", null);
+            }
 
             // 7.5 设置动态内容
             SteamFriends.SetRichPresence(dynamicKey, inputString);
-            // SteamFriends.SetRichPresence("text", inputString); // 保底字段
 
             Console.WriteLine($"[已更新] {inputString}");
         }
