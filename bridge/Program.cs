@@ -246,15 +246,15 @@ class Program
 
         Environment.SetEnvironmentVariable("SteamAppId", config.TargetAppId);
 
-        // try
-        // {
-        //     string appIdTxt = Path.Combine(AppContext.BaseDirectory, "steam_appid.txt");
-        //     File.WriteAllText(appIdTxt, config.TargetAppId);
-        // }
-        // catch
-        // {
-        //     // 忽略 steam_appid.txt 写入失败
-        // }
+        try
+        {
+            string appIdTxt = Path.Combine(AppContext.BaseDirectory, "steam_appid.txt");
+            File.WriteAllText(appIdTxt, config.TargetAppId);
+        }
+        catch
+        {
+            // 忽略 steam_appid.txt 写入失败
+        }
 
         if (!SteamInitCompat.TryInit(out string steamErr))
         {

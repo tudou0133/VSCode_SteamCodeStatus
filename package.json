@@ -2,7 +2,7 @@
   "name": "SteamCodeStatus",
   "displayName": "SteamCodeStatus",
   "description": "Sync your VS Code activity to Steam Rich Presence.",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "tudou0133",
   "author": {
     "name": "tudou0133",

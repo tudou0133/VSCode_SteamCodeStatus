@@ -4,12 +4,16 @@
 
 本文件遵循 [Keep a Changelog](http://keepachangelog.com/) 规范。
 
+## [1.0.5] - 2026-03-05
+### 🐛 修复 (Fixed)
+- 确定肯定彻底完全修复了在Linux系统下运行错误的情况。
+
 ## [1.0.4] - 2026-03-05
 ### ✨ 新增 (Added)
 - **兼容TCP模式**：桥接bridge兼容tcp模式，-tcpport 12345参数即可通过tcp端口向bridge发送指令。
 
 ### 🐛 修复 (Fixed)
-- 修复了在Linux系统下运行错误的情况。
+- 修复了在Linux系统下运行错误的情况。(没修好)
 
 ## [1.0.2] - 2026-01-28
 ### ✨ 新增 (Added)
