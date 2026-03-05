@@ -10,10 +10,15 @@ tools/**
 **/*.map
 **/*.ts
 **/.vscode-test.*
+AGENTS.md
+*.vsix
+SteamCodeStatus.sln
+恢复codex.bat
 
-# 下面这两行非常重要！
-# 我们要忽略 C# 的源码和中间文件
-backend/**/*.cs
-backend/**/*.csproj
-backend/obj/
-backend/bin/
+# C# bridge 源码和中间产物（发布包只需要 backend/** 里的运行时文件）
+bridge/**
+out/backend/**
+out/test/**
+
+# 可选减小体积：调试符号
+backend/**/*.pdb

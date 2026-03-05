@@ -184,6 +184,7 @@ sealed class BridgeConfig
     public string TargetAppId { get; set; } = "480";
     public string DisplayTemplate { get; set; } = "#Status";
     public string DynamicKey { get; set; } = "status";
+    public string IoEncoding { get; set; } = "utf8";
     public string GroupId { get; set; } = "";
     public string GroupSize { get; set; } = "";
     public int TcpPort { get; set; } = 0;
@@ -236,12 +237,11 @@ class Program
 {
     static void Main(string[] args)
     {
+        BridgeConfig config = ParseArgs(args);
+        config.IoEncoding = ApplyConsoleEncoding(config.IoEncoding);
+
         SteamNativeLoader.InstallOnce();
 
-        Console.InputEncoding = Encoding.UTF8;
-        Console.OutputEncoding = Encoding.UTF8;
-
-        BridgeConfig config = ParseArgs(args);
         PrintConfig(config);
 
         Environment.SetEnvironmentVariable("SteamAppId", config.TargetAppId);
@@ -312,6 +312,75 @@ class Program
         try { SteamAPI.Shutdown(); } catch { }
     }
 
+    static string ApplyConsoleEncoding(string requested)
+    {
+        string normalized = NormalizeEncodingName(requested);
+
+        try
+        {
+            if (string.Equals(normalized, "gbk", StringComparison.OrdinalIgnoreCase))
+            {
+                // GBK/CP936 在部分 .NET 运行环境下需要显式注册 CodePages 提供器。
+                TryRegisterCodePagesProvider();
+                Encoding gbk = Encoding.GetEncoding(936);
+                Console.InputEncoding = gbk;
+                Console.OutputEncoding = gbk;
+                return "gbk";
+            }
+
+            Console.InputEncoding = new UTF8Encoding(false);
+            Console.OutputEncoding = new UTF8Encoding(false);
+            return "utf8";
+        }
+        catch (Exception ex)
+        {
+            Console.InputEncoding = new UTF8Encoding(false);
+            Console.OutputEncoding = new UTF8Encoding(false);
+            Console.WriteLine($"[Warn] 编码模式 \"{requested}\" 不可用，已回退为 UTF-8: {ex.Message}");
+            return "utf8";
+        }
+    }
+
+    static string NormalizeEncodingName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "utf8";
+
+        string normalized = value.Trim().ToLowerInvariant();
+        if (normalized == "gbk" || normalized == "cp936" || normalized == "936")
+            return "gbk";
+
+        if (normalized == "utf8" || normalized == "utf-8")
+            return "utf8";
+
+        return "utf8";
+    }
+
+    static void TryRegisterCodePagesProvider()
+    {
+        try
+        {
+            Type? providerType = Type.GetType(
+                "System.Text.CodePagesEncodingProvider, System.Text.Encoding.CodePages",
+                throwOnError: false
+            );
+            if (providerType == null) return;
+
+            object? instanceObj = providerType
+                .GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)?
+                .GetValue(null);
+
+            if (instanceObj is EncodingProvider provider)
+            {
+                Encoding.RegisterProvider(provider);
+            }
+        }
+        catch
+        {
+            // 忽略注册失败，后续 GetEncoding(936) 会决定是否可用。
+        }
+    }
+
     static BridgeConfig ParseArgs(string[] args)
     {
         BridgeConfig config = new BridgeConfig();
@@ -326,6 +395,8 @@ class Program
                     config.DisplayTemplate = args[i + 1];
                 else if (args[i] == "-key" && i + 1 < args.Length)
                     config.DynamicKey = args[i + 1];
+                else if (args[i] == "-encoding" && i + 1 < args.Length)
+                    config.IoEncoding = args[i + 1];
                 else if (args[i] == "-group" && i + 1 < args.Length)
                     config.GroupId = args[i + 1];
                 else if (args[i] == "-groupsize" && i + 1 < args.Length)
@@ -375,6 +446,7 @@ class Program
         Console.WriteLine($"[配置] AppID: {config.TargetAppId}");
         Console.WriteLine($"[配置] Template: {config.DisplayTemplate}");
         Console.WriteLine($"[配置] Dynamic Key: {config.DynamicKey}");
+        Console.WriteLine($"[配置] 编码: {config.IoEncoding}");
         if (!string.IsNullOrEmpty(config.GroupId)) Console.WriteLine($"[配置] Group ID: {config.GroupId}");
         if (!string.IsNullOrEmpty(config.GroupSize)) Console.WriteLine($"[配置] Group Size: {config.GroupSize}");
         if (config.TcpPort > 0) Console.WriteLine($"[配置] TCP: {config.TcpHost}:{config.TcpPort}");

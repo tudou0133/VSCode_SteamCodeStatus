@@ -1,12 +1,166 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
 
 let clientProcess: cp.ChildProcess | undefined;
 let outputChannel: vscode.OutputChannel;
 let isWindowFocused = vscode.window.state.focused;
 let manualOverrideText: string | undefined = undefined;
 let myStatusBarItem: vscode.StatusBarItem;
+
+type EspIdfActivity = 'none' | 'build' | 'flash';
+
+let espIdfActivity: EspIdfActivity = 'none';
+let espIdfActivityCount = 0;
+let espIdfTargetCache: string | undefined;
+
+
+function classifyEspIdfTask(task: vscode.Task): EspIdfActivity | undefined {
+    const source = String(task.source || '').toLowerCase();
+    const definition: any = task.definition || {};
+    const type = String(definition.type || '').toLowerCase();
+    const taskId = String(definition.taskId || '').toLowerCase();
+    const command = String(definition.command || '').toLowerCase();
+    const name = String(task.name || '').toLowerCase();
+
+    if (source !== 'espressif.esp-idf-extension' || type !== 'esp-idf') {
+        return undefined;
+    }
+
+    if (
+        taskId === 'idf-flash-task' ||
+        command === 'esp-idf flash' ||
+        name === 'esp-idf flash'
+    ) {
+        return 'flash';
+    }
+
+    if (
+        taskId === 'idf-build-task' ||
+        command === 'esp-idf build' ||
+        name === 'esp-idf build'
+    ) {
+        return 'build';
+    }
+
+    return undefined;
+}
+
+function isRealCodeDocument(doc: vscode.TextDocument): boolean {
+    const scheme = doc.uri.scheme;
+
+    // 只接受真实文件（本地/远程），避免 Output / Debug / Search 等虚拟文档被同步到 Steam
+    if (scheme !== 'file' && scheme !== 'vscode-remote') {
+        return false;
+    }
+
+    // 额外兜底：有些虚拟输出可能会伪装成文件名
+    const fn = doc.fileName || '';
+    if (fn.includes('extension-output-') || fn.includes('CodeStatus Debug')) {
+        return false;
+    }
+
+    return true;
+}
+
+function getWorkspaceFolderForEditor(editor: vscode.TextEditor | undefined): vscode.WorkspaceFolder | undefined {
+    if (editor) {
+        const folder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+        if (folder) return folder;
+    }
+
+    return vscode.workspace.workspaceFolders?.[0];
+}
+
+function readIdfTargetFromFile(filePath: string): string | undefined {
+    try {
+        if (!fs.existsSync(filePath)) return undefined;
+        const text = fs.readFileSync(filePath, 'utf8');
+
+        // 支持:
+        // CONFIG_IDF_TARGET="esp32s2"
+        // CONFIG_IDF_TARGET=esp32s2
+        const match = text.match(/^CONFIG_IDF_TARGET\s*=\s*"?([A-Za-z0-9_]+)"?\s*$/m);
+        if (match?.[1]) {
+            return match[1].toLowerCase();
+        }
+    } catch (e) {
+        outputChannel.appendLine(`[ESP-IDF] 读取 target 失败: ${filePath}, err=${e}`);
+    }
+
+    return undefined;
+}
+
+function resolveEspIdfTarget(editor: vscode.TextEditor | undefined): string | undefined {
+    const folder = getWorkspaceFolderForEditor(editor);
+    if (!folder) return undefined;
+
+    const root = folder.uri.fsPath;
+
+    const fromSdkconfig = readIdfTargetFromFile(path.join(root, 'sdkconfig'));
+    if (fromSdkconfig) return fromSdkconfig;
+
+    const fromDefaults = readIdfTargetFromFile(path.join(root, 'sdkconfig.defaults'));
+    if (fromDefaults) return fromDefaults;
+
+    return undefined;
+}
+
+function getEspIdfStatusText(editor: vscode.TextEditor | undefined): string {
+    const config = vscode.workspace.getConfiguration('codeStatus');
+
+    const buildTemplate = config.get<string>('espIdfBuildTemplate', '正在编译 {esp_chip}');
+    const flashTemplate = config.get<string>('espIdfFlashTemplate', '正在烧录 {esp_chip}');
+
+    const target = espIdfTargetCache || resolveEspIdfTarget(editor);
+    const esp_chip = (target ?? 'ESP-IDF');
+    const projectName = vscode.workspace.name ?? '';
+
+    const ctx = {
+        esp_chip,
+        projectName
+    };
+
+    if (espIdfActivity === 'build') {
+        const rendered = StatusFormatter.render(buildTemplate, ctx).trim();
+        return rendered !== '' ? rendered : `正在编译 ${esp_chip}`;
+    }
+
+    if (espIdfActivity === 'flash') {
+        const rendered = StatusFormatter.render(flashTemplate, ctx).trim();
+        return rendered !== '' ? rendered : `正在烧录 ${esp_chip}`;
+    }
+
+    return '';
+}
+
+function startEspIdfActivity(kind: EspIdfActivity, editor: vscode.TextEditor | undefined) {
+    espIdfActivity = kind;
+    espIdfActivityCount++;
+    espIdfTargetCache = resolveEspIdfTarget(editor);
+
+    outputChannel.appendLine(
+        `[ESP-IDF] start kind=${kind}, target=${espIdfTargetCache ?? 'unknown'}`
+    );
+
+    updateStatus(editor);
+}
+
+function endEspIdfActivity(kind: EspIdfActivity, exitCode: number | undefined, editor: vscode.TextEditor | undefined) {
+    espIdfActivityCount = Math.max(0, espIdfActivityCount - 1);
+
+    if (espIdfActivityCount === 0) {
+        espIdfActivity = 'none';
+        espIdfTargetCache = undefined;
+    }
+
+    outputChannel.appendLine(
+        `[ESP-IDF] end kind=${kind}, exit=${exitCode ?? 'unknown'}`
+    );
+
+    updateStatus(editor);
+}
 
 export function activate(context: vscode.ExtensionContext) {
     // 1. 初始化日志
@@ -18,26 +172,26 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 3. 创建状态栏
     myStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    myStatusBarItem.command = "codeStatus.showMainMenu"; // 点击触发主菜单
+    myStatusBarItem.command = "codeStatus.showMainMenu";
     context.subscriptions.push(myStatusBarItem);
-    updateStatusBarVisuals(); // 初始化显示
+    updateStatusBarVisuals();
     myStatusBarItem.show();
 
     // ==========================================
     // 注册命令
     // ==========================================
 
-    // [命令 1] 显示主菜单 (状态栏点击触发)
     const menuCommand = vscode.commands.registerCommand('codeStatus.showMainMenu', async () => {
         const config = vscode.workspace.getConfiguration('codeStatus');
         const isEnabled = config.get<boolean>('enabled', true);
         const currentGroupId = config.get<string>('groupId', "");
+        const showEspIdfActivity = config.get<boolean>('showEspIdfActivity', true);
 
         const items: vscode.QuickPickItem[] = [
             {
                 label: isEnabled ? "$(circle-filled) 暂停同步 (Disable)" : "$(play) 启用同步 (Enable)",
                 description: isEnabled ? "当前状态: 已启用" : "当前状态: 已禁用",
-                detail: "codeStatus.toggleEnabled" // 存命令ID方便后续处理
+                detail: "codeStatus.toggleEnabled"
             },
             {
                 label: "$(organization) 设置组队 ID (Group ID)",
@@ -48,6 +202,11 @@ export function activate(context: vscode.ExtensionContext) {
                 label: "$(edit) 手动修改状态文本",
                 description: manualOverrideText ? `当前锁定: ${manualOverrideText}` : "当前: 自动模式",
                 detail: "codeStatus.setManualStatus"
+            },
+            {
+                label: showEspIdfActivity ? "$(check) ESP-IDF 状态同步: 开" : "$(circle-slash) ESP-IDF 状态同步: 关",
+                description: showEspIdfActivity ? "编译/烧录时优先显示 ESP-IDF 状态" : "仅显示文件编辑状态",
+                detail: "codeStatus.toggleEspIdfActivity"
             }
         ];
 
@@ -60,17 +219,23 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    // [命令 2] 切换启用/禁用
     const toggleCommand = vscode.commands.registerCommand('codeStatus.toggleEnabled', async () => {
         const config = vscode.workspace.getConfiguration('codeStatus');
         const current = config.get<boolean>('enabled', true);
-        // 修改配置 (Global = 用户设置)
         await config.update('enabled', !current, vscode.ConfigurationTarget.Global);
         vscode.window.setStatusBarMessage(current ? "Steam Status 已禁用" : "Steam Status 已启用", 3000);
         updateStatusBarVisuals();
     });
 
-    // [命令 3] 设置组队 ID
+    const toggleEspIdfCommand = vscode.commands.registerCommand('codeStatus.toggleEspIdfActivity', async () => {
+        const config = vscode.workspace.getConfiguration('codeStatus');
+        const current = config.get<boolean>('showEspIdfActivity', true);
+        await config.update('showEspIdfActivity', !current, vscode.ConfigurationTarget.Global);
+        vscode.window.setStatusBarMessage(!current ? "ESP-IDF 状态同步已开启" : "ESP-IDF 状态同步已关闭", 3000);
+        updateStatus(vscode.window.activeTextEditor);
+        updateStatusBarVisuals();
+    });
+
     const groupCommand = vscode.commands.registerCommand('codeStatus.setGroupId', async () => {
         const config = vscode.workspace.getConfiguration('codeStatus');
         const currentId = config.get<string>('groupId', "");
@@ -83,7 +248,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (input !== undefined) {
             await config.update('groupId', input, vscode.ConfigurationTarget.Global);
-            // 顺便提示是否要设置人数
+
             const setSize = await vscode.window.showInformationMessage(`组队 ID 已设为 "${input}"，需要设置人数吗？`, "设置人数", "跳过");
             if (setSize === "设置人数") {
                 const sizeInput = await vscode.window.showInputBox({ prompt: "输入队伍总人数", value: "4" });
@@ -92,7 +257,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    // [命令 4] 手动修改状态 (原有的逻辑)
     const manualCommand = vscode.commands.registerCommand('codeStatus.setManualStatus', async () => {
         const input = await vscode.window.showInputBox({
             placeHolder: "输入自定义状态 (留空回车则恢复自动模式)",
@@ -109,21 +273,36 @@ export function activate(context: vscode.ExtensionContext) {
             manualOverrideText = input;
             vscode.window.setStatusBarMessage(`CodeStatus: 已锁定为 "${input}"`, 3000);
         }
+
         updateStatus(vscode.window.activeTextEditor);
-        updateStatusBarVisuals(); // 可能状态变了，刷一下图标
+        updateStatusBarVisuals();
     });
 
-    context.subscriptions.push(menuCommand, toggleCommand, groupCommand, manualCommand);
-
+    context.subscriptions.push(menuCommand, toggleCommand, toggleEspIdfCommand, groupCommand, manualCommand);
 
     // 4. 监听配置修改 (Hot Reload)
-    // 注意：上面的 toggleEnabled 和 setGroupId 都会触发这个事件，所以不需要在那里写重启逻辑
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('codeStatus')) {
+        if (!e.affectsConfiguration('codeStatus')) return;
+
+        // 只有影响 bridge 启动参数/开关的配置才需要重启后端
+        const needsRestart =
+            e.affectsConfiguration('codeStatus.enabled') ||
+            e.affectsConfiguration('codeStatus.steamAppId') ||
+            e.affectsConfiguration('codeStatus.displayTemplate') ||
+            e.affectsConfiguration('codeStatus.dynamicKey') ||
+            e.affectsConfiguration('codeStatus.staticArgs') ||
+            e.affectsConfiguration('codeStatus.groupId') ||
+            e.affectsConfiguration('codeStatus.groupSize');
+
+        updateStatusBarVisuals();
+
+        if (needsRestart) {
             outputChannel.appendLine("[System] 检测到配置变更，正在重启后端...");
-            updateStatusBarVisuals(); // 刷新图标状态
             stopBridge();
             setTimeout(() => startBridge(context), 500);
+        } else {
+            // 仅更新显示文本，无需重启 bridge
+            updateStatus(vscode.window.activeTextEditor);
         }
     }));
 
@@ -137,15 +316,28 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor((editor) => {
         updateStatus(editor);
     }));
+    // 7. ESP-IDF task 监听（编译/烧录）
+    context.subscriptions.push(
+        vscode.tasks.onDidStartTaskProcess((e) => {
+            const kind = classifyEspIdfTask(e.execution.task);
+            if (!kind) return;
+            startEspIdfActivity(kind, vscode.window.activeTextEditor);
+        }),
+
+        vscode.tasks.onDidEndTaskProcess((e) => {
+            const kind = classifyEspIdfTask(e.execution.task);
+            if (!kind) return;
+            endEspIdfActivity(kind, e.exitCode, vscode.window.activeTextEditor);
+        })
+    );
 }
 
 // --- 封装启动逻辑 ---
+
 function startBridge(context: vscode.ExtensionContext) {
-    // 1. 读取用户配置
     const config = vscode.workspace.getConfiguration('codeStatus');
     const enabled = config.get<boolean>('enabled', true);
-    
-    // 如果用户关掉了插件，直接返回
+
     if (!enabled) {
         outputChannel.appendLine("[System] 插件已禁用 (Disabled in Settings)");
         return;
@@ -154,14 +346,13 @@ function startBridge(context: vscode.ExtensionContext) {
     const appId = config.get<string>('steamAppId', "480");
     const template = config.get<string>('displayTemplate', "#Status_Airport");
     const dynamicKey = config.get<string>('dynamicKey', "max_players");
-    // 获取静态参数字符串 (例如: "key1=val1 & key2=val2")
     const staticArgsRaw = config.get<string>('staticArgs', "");
-    const groupId = config.get<string>('groupId', "1");
+    const groupId = config.get<string>('groupId', "");
     const groupSize = config.get<string>('groupSize', "1");
 
-    // 2. 确定路径
     let backendRoot = "";
     let exeName = "";
+
     if (process.platform === 'win32') {
         backendRoot = path.join(context.extensionPath, 'backend', 'win-x64');
         exeName = "SteamRichPresenceBridge.exe";
@@ -169,11 +360,12 @@ function startBridge(context: vscode.ExtensionContext) {
         backendRoot = path.join(context.extensionPath, 'backend', 'linux-x64');
         exeName = "SteamRichPresenceBridge";
     } else {
+        outputChannel.appendLine(`[System] 暂不支持的平台: ${process.platform}`);
         return;
     }
+
     const exePath = path.join(backendRoot, exeName);
 
-    // 3. 构造参数
     const args = [
         "-app", appId,
         "-template", template,
@@ -182,13 +374,10 @@ function startBridge(context: vscode.ExtensionContext) {
         "-groupsize", groupSize
     ];
 
-    // 处理多个 -static 参数
-    // 逻辑：用 '&' 分割字符串，然后循环添加到数组中
     if (staticArgsRaw && staticArgsRaw.trim() !== "") {
-        const pairs = staticArgsRaw.split('&'); // 使用 & 作为分隔符
+        const pairs = staticArgsRaw.split('&');
         for (const pair of pairs) {
             const cleanPair = pair.trim();
-            // 只有包含 '=' 的才被视为有效参数
             if (cleanPair && cleanPair.includes('=')) {
                 args.push("-static", cleanPair);
             }
@@ -197,11 +386,11 @@ function startBridge(context: vscode.ExtensionContext) {
 
     outputChannel.appendLine(`[启动] 参数: ${JSON.stringify(args)}`);
 
-    // 4. 启动进程
     try {
         if (process.platform === 'linux') {
-            const fs = require('fs');
-            try { fs.chmodSync(exePath, '755'); } catch {}
+            try {
+                fs.chmodSync(exePath, '755');
+            } catch {}
         }
 
         clientProcess = cp.spawn(exePath, args, {
@@ -211,7 +400,6 @@ function startBridge(context: vscode.ExtensionContext) {
 
         if (clientProcess.pid) {
             outputChannel.appendLine(`[System] 后端进程 PID: ${clientProcess.pid}`);
-            // 启动成功后立刻刷一次状态
             updateStatus(vscode.window.activeTextEditor);
         }
 
@@ -239,60 +427,57 @@ function stopBridge() {
 function updateStatus(editor: vscode.TextEditor | undefined) {
     if (!clientProcess || clientProcess.killed || !isWindowFocused) return;
 
+    // 过滤非真实文件文档，避免把 Output / Debug / Search 之类同步到 Steam
+    if (editor && !isRealCodeDocument(editor.document)) {
+        outputChannel.appendLine(
+            `[Skip] 非真实文件文档: scheme=${editor.document.uri.scheme}, path=${editor.document.fileName}`
+        );
+        return;
+    }
+
     let statusText = "";
 
-    // 1. 获取配置 (支持实时修改，不需要重启后端)
     const config = vscode.workspace.getConfiguration('codeStatus');
-    // 默认模板：如果有项目名则显示 "项目 | 文件"，否则只显示 "文件"
     const statusTemplate = config.get<string>('statusTemplate', '[{projectName} | ]正在编写 {folderName}/{fileName}');
-    const idleText = config.get<string>('idleText', '正在摸鱼🐟'); // 空闲时的文字
+    const idleText = config.get<string>('idleText', '正在摸鱼🐟');
+    const showEspIdfActivity = config.get<boolean>('showEspIdfActivity', true);
 
-    // 2. 决定显示内容
     if (manualOverrideText) {
-        // [模式 A] 手动锁定模式
         statusText = manualOverrideText;
+    } else if (showEspIdfActivity && espIdfActivity !== 'none') {
+        statusText = getEspIdfStatusText(editor);
     } else {
-        // [模式 B] 自动模式
         if (editor) {
-            /// 准备数据上下文 (Context)
             const doc = editor.document;
             const fullPath = doc.fileName;
 
-            // --- [新增逻辑] 获取上一级目录名 ---
-            // 1. 获取目录路径: /Users/me/project/src/components
-            const dirPath = path.dirname(fullPath); 
-            // 2. 获取目录名的最后一段: components
-            const folderName = path.basename(dirPath); 
-            // ----------------------------------
+            const dirPath = path.dirname(fullPath);
+            const folderName = path.basename(dirPath);
 
             const context = {
                 fileName: path.basename(fullPath),
                 projectName: vscode.workspace.name,
                 language: doc.languageId,
                 lineCount: doc.lineCount,
-                
-                // 新增变量
-                folderName: folderName, 
-                
-                // 原有的相对路径 (src/components/Button.tsx)
-                filePath: vscode.workspace.asRelativePath(fullPath), 
+                folderName: folderName,
+                filePath: vscode.workspace.asRelativePath(fullPath),
             };
 
-            // 使用格式化器生成文本
             statusText = StatusFormatter.render(statusTemplate, context);
         } else {
-            // 没打开文件
             statusText = idleText;
         }
     }
 
-    // 3. 发送数据
     try {
-        // 移除换行符防止协议错乱
-        const cleanText = statusText.replace(/[\r\n]/g, ' '); 
+        const cleanText = statusText.replace(/[\r\n]/g, ' ');
         clientProcess.stdin?.write(cleanText + "\n");
-        outputChannel.appendLine(`[Sent]: ${cleanText} ${manualOverrideText ? '(Manual)' : '(Auto)'}`);
-    } catch (e) { }
+        outputChannel.appendLine(
+            `[Sent]: ${cleanText} ${manualOverrideText ? '(Manual)' : (showEspIdfActivity && espIdfActivity !== 'none' ? '(ESP-IDF)' : '(Auto)')}`
+        );
+    } catch (e) {
+        outputChannel.appendLine(`[Error] 发送状态失败: ${e}`);
+    }
 }
 
 export function deactivate() {
@@ -311,24 +496,19 @@ const StatusFormatter = {
     render(template: string, data: any): string {
         if (!template) return '';
 
-        // 1. 处理条件组 [...]
-        // 逻辑：如果组内的变量在 data 中缺失(null/undefined/空)，则整个组隐藏
         let result = template.replace(/\[(.*?)\]/g, (match, content) => {
-            // 找出组内所有 {variable}
             const variables = content.match(/\{(\w+)\}/g) || [];
-            
-            // 检查组内变量是否都存在
+
             for (const v of variables) {
                 const key = v.replace(/\{|\}/g, '');
                 if (this.isEmpty(data[key])) {
-                    return ''; // 只要有一个缺了，整个组就隐藏
+                    return '';
                 }
             }
-            // 如果都不缺，保留组的内容（去掉中括号）
+
             return content;
         });
 
-        // 2. 替换剩余的变量 {key}
         result = result.replace(/\{(\w+)\}/g, (match, key) => {
             return this.isEmpty(data[key]) ? '' : String(data[key]);
         });
@@ -352,21 +532,19 @@ function updateStatusBarVisuals() {
     if (!isEnabled) {
         myStatusBarItem.text = "$(circle-slash) Steam: Off";
         myStatusBarItem.tooltip = "Steam Status 已禁用 (点击开启)";
-        myStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground'); // 显眼的背景色
+        myStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     } else {
-        // 正常开启状态
         if (manualOverrideText) {
-            myStatusBarItem.text = "$(lock) Steam: Manual"; // 锁定图标
+            myStatusBarItem.text = "$(lock) Steam: Manual";
             myStatusBarItem.tooltip = `当前手动锁定: ${manualOverrideText}`;
         } else {
             myStatusBarItem.text = "$(megaphone) Steam: On";
-            // 如果有组队，显示一点提示
             if (groupId) {
                 myStatusBarItem.tooltip = `正在同步 | 组队 ID: ${groupId}`;
             } else {
                 myStatusBarItem.tooltip = "点击打开设置菜单";
             }
         }
-        myStatusBarItem.backgroundColor = undefined; // 恢复默认背景
+        myStatusBarItem.backgroundColor = undefined;
     }
 }

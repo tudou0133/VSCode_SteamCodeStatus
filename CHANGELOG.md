@@ -4,6 +4,11 @@
 
 本文件遵循 [Keep a Changelog](http://keepachangelog.com/) 规范。
 
+## [1.0.6] - 2026-03-05
+### ✨ 新增 (Added)
+- **同步ESP-IDF状态**：开启后可以同步乐鑫ESP-IDF插件的编译和烧录状态，能让你的好友知道在干什么。
+- **兼容GBK编码**：适应老win电脑，桥接bridge程序兼容GBK编码，-encoding gbk参数即可开启GBK编码模式。
+
 ## [1.0.5] - 2026-03-05
 ### 🐛 修复 (Fixed)
 - 确定肯定彻底完全修复了在Linux系统下运行错误的情况。

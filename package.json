@@ -2,7 +2,7 @@
   "name": "SteamCodeStatus",
   "displayName": "SteamCodeStatus",
   "description": "Sync your VS Code activity to Steam Rich Presence.",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "publisher": "tudou0133",
   "author": {
     "name": "tudou0133",
@@ -50,6 +50,10 @@
         "title": "CodeStatus: 切换启用/禁用 (Toggle Enable)"
       },
       {
+        "command": "codeStatus.toggleEspIdfActivity",
+        "title": "CodeStatus: 切换 ESP-IDF 状态同步 (Toggle ESP-IDF Sync)"
+      },
+      {
         "command": "codeStatus.setGroupId",
         "title": "CodeStatus: 设置组队 ID (Set Group ID)"
       },
@@ -59,56 +63,73 @@
       }
     ],
     "configuration": {
-        "title": "SteamCodeStatus配置", 
-        "properties": {
-            "codeStatus.enabled": {
-                "type": "boolean",
-                "default": true,
-                "description": "是否启用 Steam 状态同步插件"
-            },
-            "codeStatus.steamAppId": {
-                "type": "string",
-                "default": "730",
-                "description": "目标游戏的 AppID (例如: 480 或 730)"
-            },
-            "codeStatus.displayTemplate": {
-                "type": "string",
-                "default": "#display_GameKnownMapScore",
-                "description": "Rich Presence 模板 Key (例如: #Status 或 #display_GameKnownMapScore)"
-            },
-            "codeStatus.dynamicKey": {
-                "type": "string",
-                "default": "game:score",
-                "description": "用于显示文件名的动态参数 Key (例如: status 或 game:score)"
-            },
-            "codeStatus.staticArgs": {
-                "type": "string",
-                "default": "game:mode=competitive & game:map=de_mirage",
-                "description": "静态参数，格式 key1=value1 & key2=value2 (例如: game:mode=competitive)"
-            },
-            "codeStatus.statusTemplate": {
-                "type": "string",
-                "default": "正在编写 {folderName}/{fileName}",
-                "description": "自定义状态栏显示格式。支持变量: {projectName}, {fileName}, {language}, {lineCount}, {filePath}, {folderName}。使用 [...] 包裹的内容仅在变量存在时显示。",
-                "order": 1
-            },
-            "codeStatus.idleText": {
-                "type": "string",
-                "default": "正在摸鱼🐟",
-                "description": "当没有打开文件时显示的文本",
-                "order": 2
-            },
-            "codeStatus.groupId": {
-                "type": "string",
-                "default": "",
-                "description": "Steam 组队ID "
-            },
-            "codeStatus.groupSize": {
-                "type": "string",
-                "default": "1",
-                "description": "Steam 组队人数"
-            }
+      "title": "SteamCodeStatus配置",
+      "properties": {
+        "codeStatus.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用 Steam 状态同步插件"
+        },
+        "codeStatus.steamAppId": {
+          "type": "string",
+          "default": "730",
+          "description": "目标游戏的 AppID (例如: 480 或 730)"
+        },
+        "codeStatus.displayTemplate": {
+          "type": "string",
+          "default": "#display_GameKnownMapScore",
+          "description": "Rich Presence 模板 Key (例如: #Status 或 #display_GameKnownMapScore)"
+        },
+        "codeStatus.dynamicKey": {
+          "type": "string",
+          "default": "game:score",
+          "description": "用于显示文件名的动态参数 Key (例如: status 或 game:score)"
+        },
+        "codeStatus.staticArgs": {
+          "type": "string",
+          "default": "game:mode=competitive & game:map=de_mirage",
+          "description": "静态参数，格式 key1=value1 & key2=value2 (例如: game:mode=competitive)"
+        },
+        "codeStatus.statusTemplate": {
+          "type": "string",
+          "default": "正在编写 {folderName}/{fileName}",
+          "description": "自定义状态栏显示格式。支持变量: {projectName}, {fileName}, {language}, {lineCount}, {filePath}, {folderName}。使用 [...] 包裹的内容仅在变量存在时显示。",
+          "order": 1
+        },
+        "codeStatus.idleText": {
+          "type": "string",
+          "default": "正在摸鱼🐟",
+          "description": "当没有打开文件时显示的文本",
+          "order": 2
+        },
+        "codeStatus.groupId": {
+          "type": "string",
+          "default": "",
+          "description": "Steam 组队ID "
+        },
+        "codeStatus.groupSize": {
+          "type": "string",
+          "default": "1",
+          "description": "Steam 组队人数"
+        },
+        "codeStatus.showEspIdfActivity": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否同步 ESP-IDF 的编译/烧录状态；关闭则继续显示文件编辑状态"
+        },
+        "codeStatus.espIdfBuildTemplate": {
+          "type": "string",
+          "default": "正在编译 {esp_chip} 项目",
+          "description": "ESP-IDF 编译时的状态文本模板。支持变量: {esp_chip} (如 esp32s2；读不到则为 ESP-IDF), {projectName}",
+          "order": 10
+        },
+        "codeStatus.espIdfFlashTemplate": {
+          "type": "string",
+          "default": "正在烧录 {esp_chip} 芯片",
+          "description": "ESP-IDF 烧录时的状态文本模板。支持变量: {esp_chip} (读不到则为 ESP-IDF), {projectName}",
+          "order": 11
         }
+      }
     }
   },
   "scripts": {
