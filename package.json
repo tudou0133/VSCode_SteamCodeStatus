@@ -2,7 +2,7 @@
   "name": "SteamCodeStatus",
   "displayName": "SteamCodeStatus",
   "description": "Sync your VS Code activity to Steam Rich Presence.",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "publisher": "tudou0133",
   "author": {
     "name": "tudou0133",
@@ -116,8 +116,10 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "vscode-test",
-    "build:bridge_x64": "dotnet publish bridge/SteamRichPresenceBridge.csproj -c Release -r win-x64 --self-contained true -o backend/win-x64",
-    "build:bridge_linux": "dotnet publish bridge/SteamRichPresenceBridge.csproj -c Release -r linux-x64 --self-contained true -o backend/linux-x64",
+    "copy:native_win": "node tools/copy-steam-native.js win-x64",
+    "copy:native_linux": "node tools/copy-steam-native.js linux-x64",
+    "build:bridge_x64": "dotnet publish bridge/SteamRichPresenceBridge.csproj -c Release -r win-x64 --self-contained true -o backend/win-x64 && npm run copy:native_win",
+    "build:bridge_linux": "dotnet publish bridge/SteamRichPresenceBridge.csproj -c Release -r linux-x64 --self-contained true -o backend/linux-x64 && npm run copy:native_linux",
     "build:all": "npm run compile && npm run build:bridge_x64 && npm run build:bridge_linux"
   },
   "devDependencies": {
