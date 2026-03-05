@@ -10,6 +10,9 @@
     <a href="https://github.com/tudou0133/VSCode_SteamCodeStatus/blob/main/LICENSE">
         <img src="https://img.shields.io/github/license/tudou0133/VSCode_SteamCodeStatus" alt="License">
     </a>
+    <a href="./CHANGELOG.md">
+        <img src="https://img.shields.io/badge/Changelog-更新日志-brightgreen?logo=markdown&logoColor=white" alt="Changelog">
+    </a>
     <a href="https://marketplace.visualstudio.com/vscode">
         <img src="https://img.shields.io/badge/VS%20Code-Marketplace-blue?logo=visual-studio-code" alt="Marketplace">
     </a>
