@@ -16,6 +16,9 @@
     <a href="https://marketplace.visualstudio.com/items?itemName=tudou0133.SteamCodeStatus">
         <img src="https://img.shields.io/badge/VS%20Code-Marketplace-blue?logo=visual-studio-code" alt="Marketplace">
     </a>
+    <a href="https://space.bilibili.com/1905989">
+        <img src="https://img.shields.io/badge/Bilibili-B站主页-FB7299?logo=bilibili&logoColor=white" alt="Bilibili">
+    </a>
 </div>
 
 **中文**  
