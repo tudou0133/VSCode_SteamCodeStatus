@@ -1,8 +1,8 @@
 {
   "name": "SteamCodeStatus",
   "displayName": "SteamCodeStatus",
-  "description": "Sync your VS Code activity to Steam Rich Presence.",
-  "version": "1.0.6",
+  "description": "将 VS Code 编程状态同步到 Steam Rich Presence / Sync your VS Code activity to Steam Rich Presence.",
+  "version": "1.0.7",
   "publisher": "tudou0133",
   "author": {
     "name": "tudou0133",
@@ -63,70 +63,70 @@
       }
     ],
     "configuration": {
-      "title": "SteamCodeStatus配置",
+      "title": "SteamCodeStatus 配置 / SteamCodeStatus Settings",
       "properties": {
         "codeStatus.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "是否启用 Steam 状态同步插件"
+          "description": "是否启用 Steam 状态同步插件 / Enable or disable Steam status sync."
         },
         "codeStatus.steamAppId": {
           "type": "string",
           "default": "730",
-          "description": "目标游戏的 AppID (例如: 480 或 730)"
+          "description": "目标游戏的 AppID（例如 480 或 730） / Target game AppID, for example 480 or 730."
         },
         "codeStatus.displayTemplate": {
           "type": "string",
           "default": "#display_GameKnownMapScore",
-          "description": "Rich Presence 模板 Key (例如: #Status 或 #display_GameKnownMapScore)"
+          "description": "Rich Presence 模板 Key（例如 #Status 或 #display_GameKnownMapScore） / Rich Presence template key, for example #Status or #display_GameKnownMapScore."
         },
         "codeStatus.dynamicKey": {
           "type": "string",
           "default": "game:score",
-          "description": "用于显示文件名的动态参数 Key (例如: status 或 game:score)"
+          "description": "用于承载动态状态文本的参数 Key（例如 status 或 game:score） / Parameter key used for dynamic status text, for example status or game:score."
         },
         "codeStatus.staticArgs": {
           "type": "string",
           "default": "game:mode=competitive & game:map=de_mirage",
-          "description": "静态参数，格式 key1=value1 & key2=value2 (例如: game:mode=competitive)"
+          "description": "静态参数，格式为 key1=value1 & key2=value2 / Static arguments in the format key1=value1 & key2=value2."
         },
         "codeStatus.statusTemplate": {
           "type": "string",
           "default": "正在编写 {folderName}/{fileName}",
-          "description": "自定义状态栏显示格式。支持变量: {projectName}, {fileName}, {language}, {lineCount}, {filePath}, {folderName}。使用 [...] 包裹的内容仅在变量存在时显示。",
+          "description": "自定义状态文本模板。支持 {projectName}、{fileName}、{language}、{lineCount}、{filePath}、{folderName}；用 [...] 包裹的内容仅在变量存在时显示 / Custom status text template. Supports {projectName}, {fileName}, {language}, {lineCount}, {filePath}, and {folderName}; content inside [...] is shown only when referenced variables are present.",
           "order": 1
         },
         "codeStatus.idleText": {
           "type": "string",
           "default": "正在摸鱼🐟",
-          "description": "当没有打开文件时显示的文本",
+          "description": "没有活动文件时显示的文本 / Text shown when no active file is open.",
           "order": 2
         },
         "codeStatus.groupId": {
           "type": "string",
           "default": "",
-          "description": "Steam 组队ID "
+          "description": "Steam 组队 ID / Steam party or lobby ID."
         },
         "codeStatus.groupSize": {
           "type": "string",
           "default": "1",
-          "description": "Steam 组队人数"
+          "description": "Steam 组队人数 / Steam party size."
         },
         "codeStatus.showEspIdfActivity": {
           "type": "boolean",
           "default": true,
-          "description": "是否同步 ESP-IDF 的编译/烧录状态；关闭则继续显示文件编辑状态"
+          "description": "是否同步 ESP-IDF 编译和烧录状态；关闭后继续显示文件编辑状态 / Whether to sync ESP-IDF build and flash activity; when disabled, normal file editing status stays visible."
         },
         "codeStatus.espIdfBuildTemplate": {
           "type": "string",
           "default": "正在编译 {esp_chip} 项目",
-          "description": "ESP-IDF 编译时的状态文本模板。支持变量: {esp_chip} (如 esp32s2；读不到则为 ESP-IDF), {projectName}",
+          "description": "ESP-IDF 编译状态模板。支持 {esp_chip} 和 {projectName}；若读取不到芯片名则回退为 ESP-IDF / ESP-IDF build status template. Supports {esp_chip} and {projectName}; falls back to ESP-IDF when the chip name cannot be detected.",
           "order": 10
         },
         "codeStatus.espIdfFlashTemplate": {
           "type": "string",
           "default": "正在烧录 {esp_chip} 芯片",
-          "description": "ESP-IDF 烧录时的状态文本模板。支持变量: {esp_chip} (读不到则为 ESP-IDF), {projectName}",
+          "description": "ESP-IDF 烧录状态模板。支持 {esp_chip} 和 {projectName}；若读取不到芯片名则回退为 ESP-IDF / ESP-IDF flash status template. Supports {esp_chip} and {projectName}; falls back to ESP-IDF when the chip name cannot be detected.",
           "order": 11
         }
       }
